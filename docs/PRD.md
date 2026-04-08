@@ -80,4 +80,4 @@ _Describe 1–3 main flows (bullet steps or link to a diagram in LLD)._
 
 ---
 
-_Delete sections you do not need; keep the doc short and honest for the hackathon timeline._
+_Keep the doc short and honest for the hackathon timeline._
