@@ -80,4 +80,8 @@ _Describe 1–3 main flows (bullet steps or link to a diagram in LLD)._
 
 ---
 
-_Keep the doc short and honest for the hackathon timeline._
+## How to use this template
+
+You may **skip any section** that does not apply. Where you skip, add a **brief reason** (for example: `N/A — no external integrations in this spike`) so reviewers know the gap was intentional, not forgotten.
+
+_Keep the document proportionate to the hackathon timeline._

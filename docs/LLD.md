@@ -92,4 +92,8 @@ _What you simplified for the hackathon and what you would do next._
 
 ---
 
+## How to use this template
+
+You may **skip any section** that does not apply. Where you skip, add a **brief reason** (for example: `N/A — single-process demo, no queues`) so reviewers know the omission was deliberate.
+
 _Keep diagrams ASCII or link to an image in the repo; avoid huge prose._
