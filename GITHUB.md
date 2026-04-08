@@ -59,16 +59,14 @@ your-repo/
 | LLD | docs/LLD.md | 10 Apr, 12:00 AM IST |
 | Code | src/ | 11 Apr, 12:00 AM IST |
 
-- Each artifact has its own deadline
-- You can keep pushing freely — only the timestamp of the last commit per artifact matters
-- Commits after the deadline are automatically flagged and will incur a penalty
-- You will see a red ✗ on your commit if it was late — green ✓ means you are on time
+- Each artifact has its own published deadline. Organizers may apply lateness rules; there is **no** automated sync to a central repo or bot-driven commit status for deadlines.
+- **Judges review your work in your team repository** (e.g. open `docs/PRD.md` and `docs/LLD.md` on **`stage`**). Keep those paths and filenames so reviewers can find them quickly.
 
 ---
 
 ## How to Submit
 
-No separate submission step. Every push to stage is automatically recorded.
+No separate submission portal. Push your work to the **`stage`** branch; that is your source of truth for reviewers.
 
 ### PRD
 git add docs/PRD.md
@@ -93,22 +91,11 @@ Due: 11 Apr, 12:00 AM IST
 
 ---
 
-## Checking Your Submission Status
-
-After every push to stage:
-GitHub → Your Repo → Commits → click the ✓ or ✗ icon next to your commit
-
-It will show:
-- hackathon/deadline → success = on time ✓
-- hackathon/deadline → failure = late ✗ (artifact name will be listed)
-
----
-
 ## CI/CD pipelines
 
 Your repo ships with GitHub Actions workflows under `.github/workflows/`. You may
-adapt Dockerfiles, tests, and inputs to your stack. **Do not remove the deadline
-workflow** — submission timing is enforced there and is separate from build/deploy.
+adapt Dockerfiles, tests, and inputs to your stack. Build and deploy behavior is
+separate from how judges access your PRD/LLD in **`docs/`**.
 
 ### Where configuration lives
 
