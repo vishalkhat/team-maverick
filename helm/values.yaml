@@ -4,7 +4,8 @@
 #
 # 1. Pick one canonical name (e.g. hackathon-service). It must match:
 #    - CI_SERVICE_NAME in .github/workflows/build.yml
-#    - Your AppConfig application name (see scripts/bootstrap-appconfig-for-helm.sh)
+#    - Your AppConfig application name (see scripts/bootstrap-appconfig-for-helm.sh).
+#      AppConfig also uses helm/config.yml under profile "in-hack-app-config" — deploy that after bootstrap.
 #
 # 2. Replace every "<service-name>" placeholder in this file with that name
 #    (search the file for: <service-name>) before pasting into AppConfig hosted config.

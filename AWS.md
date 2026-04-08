@@ -88,10 +88,10 @@ Do these in order so **CI can build and Helm can apply** the right image and con
    - **`CI_BUILD_STACK`** — which stack runs: **`python`**, **`nextjs`**, **`java-mvn`**, or **`java-gradle`**.  
    Adjust Dockerfile paths, Java/Node/Python versions, and secrets (`GIT_TOKEN`, `ORG_YARNRC`, `PACKAGES_READ_TOKEN`, etc.) per your project.
 
-4. **Publish `helm/values.yaml` to AWS App Config before (or when) you rely on deploy**  
-   The shared **Helm deploy** path expects **hosted configuration** for your service (profile **`in-hack-helm-configs`**, environment **`hack`**, application name = your **`CI_SERVICE_NAME`**). If App Config does not yet contain your values, deploys can fail or apply wrong defaults.
+4. **Publish App Config before (or when) you rely on deploy**  
+   The shared **Helm deploy** path expects **hosted configuration** for your service: application name = **`CI_SERVICE_NAME`**, environment **`hack`**, and profiles **`in-hack-helm-configs`** (Helm values) and **`in-hack-app-config`** (contents of **`helm/config.yml`**). If App Config does not yet contain your data, deploys can fail or apply wrong defaults.
 
-   **Bootstrap (fast, no upload):** after SSO login, create the app, environment, hosted profile, and a custom **`AllAtOnce`** deployment strategy (if missing) — seconds only:
+   **Bootstrap:** after SSO login, the script creates the app, environment, both hosted profiles, a custom **`AllAtOnce`** strategy (if missing), and **uploads `helm/config.yml`** as a new hosted version on **`in-hack-app-config`** (no deployment is started):
 
    ```bash
    export AWS_PROFILE=<your-hack-apr-26-profile>
@@ -99,7 +99,7 @@ Do these in order so **CI can build and Helm can apply** the right image and con
    ./scripts/bootstrap-appconfig-for-helm.sh "$CI_SERVICE_NAME"
    ```
 
-   **Upload and deploy in the console:** open **Systems Manager → AppConfig** (same region), select your application → configuration **`in-hack-helm-configs`** → create a **hosted configuration version** and paste the contents of **`helm/values.yaml`** (replace **`<service-name>`** / **`<CHANGE_ME>`** with **`CI_SERVICE_NAME`** — see the top of **`helm/values.yaml`**). Then **start a deployment** to environment **`hack`**.
+   **You must deploy (push) in the console:** open **Systems Manager → AppConfig** (same region) → your application → for **`in-hack-app-config`**, **start a deployment** of the version the script just created to environment **`hack`**. Separately, for **`in-hack-helm-configs`**, create a hosted version from **`helm/values.yaml`** (replace **`<service-name>`** / **`<CHANGE_ME>`** with **`CI_SERVICE_NAME`** — see the top of **`helm/values.yaml`**), then **deploy** that version to **`hack`**. Re-run the bootstrap script after editing **`helm/config.yml`** to upload a new version, then deploy again.
 
    **Deployment strategy:** choose the custom strategy named **`AllAtOnce`** (created by the bootstrap script if it did not exist). Do **not** use the read-only preset **`AppConfig.AllAtOnce`** — it always includes a **10** minute bake. The custom strategy uses **0** minutes **deployment duration** and **0** minutes **final bake** so rollout finishes as soon as AppConfig applies the version.
 
