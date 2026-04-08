@@ -1,0 +1,121 @@
+# Set CI_BUILD_STACK and CI_SERVICE_NAME below (no separate meta job).
+# CI_BUILD_STACK: python | nextjs | java-mvn | java-gradle
+# Shared workflows: github-shared-workflows @stable
+
+name: Application Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      ignore_test_failures:
+        description: 'Whether to ignore test step failures and continue the workflow'
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    branches: [dev, stage, main]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [dev, stage, main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  CI_BUILD_STACK: python
+  CI_SERVICE_NAME: hackathon-service
+
+jobs:
+  build-python:
+    if: env.CI_BUILD_STACK == 'python'
+    uses: nurixlabs/github-shared-workflows/.github/workflows/gsw-python-poetry-build.yml@stable
+    with:
+      python_version: '3.11'
+      dockerfile: Dockerfile
+      ecr_repository: ${{ env.CI_SERVICE_NAME }}
+      aws_region: ap-south-1
+      test_coverage_threshold: '15'
+      exclude_test_files: ''
+      poetry_groups_exclude: ''
+      helm_chart_name: python-service
+      test_folder: tests
+      ignore_test_failures: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ignore_test_failures || false }}
+    secrets:
+      GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+  build-nextjs:
+    if: env.CI_BUILD_STACK == 'nextjs'
+    uses: nurixlabs/github-shared-workflows/.github/workflows/gsw-nextjs-yarn-build.yml@stable
+    with:
+      node_version: '22'
+      dockerfile: nextjs-service.Dockerfile
+      ecr_repository: ${{ env.CI_SERVICE_NAME }}
+      aws_region: ap-south-1
+      test_script: tests
+      build_script: build
+      exclude_test_files: ''
+      helm_chart_name: nextjs-service
+      ignore_test_failures: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ignore_test_failures || false }}
+    secrets:
+      ORG_YARNRC: ${{ secrets.ORG_YARNRC }}
+      GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-java-mvn:
+    if: env.CI_BUILD_STACK == 'java-mvn'
+    uses: nurixlabs/github-shared-workflows/.github/workflows/gsw-java-maven-build.yml@stable
+    secrets: inherit
+    with:
+      java_version: '17'
+      dockerfile: Dockerfile
+      ecr_repository: ${{ env.CI_SERVICE_NAME }}
+      aws_region: ap-south-1
+      helm_chart_name: java-service
+      maven_profiles: ''
+      maven_options: '-T 4C -B --no-transfer-progress'
+      enable_coverage: false
+      skip_tests: false
+      ignore_test_failures: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ignore_test_failures || false }}
+
+  build-java-gradle:
+    if: env.CI_BUILD_STACK == 'java-gradle'
+    uses: nurixlabs/github-shared-workflows/.github/workflows/gsw-java-gradle-build.yml@stable
+    with:
+      java_version: '17'
+      dockerfile: Dockerfile
+      ecr_repository: ${{ env.CI_SERVICE_NAME }}
+      aws_region: ap-south-1
+      helm_chart_name: java-service
+      gradle_options: '--no-daemon --build-cache'
+      skip_tests: false
+      ignore_test_failures: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ignore_test_failures || false }}
+    secrets:
+      GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+  auto-deploy-in:
+    needs: [build-python, build-nextjs, build-java-mvn, build-java-gradle]
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/stage') &&
+      (needs.build-python.result == 'success' ||
+       needs.build-nextjs.result == 'success' ||
+       needs.build-java-mvn.result == 'success' ||
+       needs.build-java-gradle.result == 'success')
+    uses: nurixlabs/github-shared-workflows/.github/workflows/gsw-deploy-helm.yml@stable
+    with:
+      environment: ${{ github.ref == 'refs/heads/dev' && 'dev' || github.ref == 'refs/heads/stage' && 'stage' }}
+      region: 'in'
+      image_repo: ${{ env.CI_SERVICE_NAME }}
+      image_tag: >-
+        ${{
+          needs.build-python.outputs.image_tag
+          || (github.ref == 'refs/heads/dev' && needs.build-nextjs.outputs.image_tag_dev_in || needs.build-nextjs.outputs.image_tag_stage_in)
+          || needs.build-java-mvn.outputs.image_tag
+          || needs.build-java-gradle.outputs.image_tag
+        }}
+      service_name: ${{ env.CI_SERVICE_NAME }}
+      helm_chart_name: >-
+        ${{ (env.CI_BUILD_STACK == 'python' && 'python-service')
+            || (env.CI_BUILD_STACK == 'nextjs' && 'nextjs-service')
+            || ((env.CI_BUILD_STACK == 'java-mvn' || env.CI_BUILD_STACK == 'java-gradle') && 'java-service')
+            || 'python-service' }}
