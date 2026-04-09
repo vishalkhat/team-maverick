@@ -1,14 +1,22 @@
 # hack-apr-26-template-repo
 
-Template for **Hack Apr 26** service repos. Full participant steps live in **[GITHUB.md](./GITHUB.md)**; AWS account and App Config details are in **[AWS.md](./AWS.md)**.
+Template for **Hack Apr 26** team repos. Full participant steps live in **[GITHUB.md](./GITHUB.md)**; cloud resource details (AWS + Gemini) are in **[CLOUD.md](./CLOUD.md)**.
 
-## In a nutshell
+## Quick start
 
-1. **Register your repo** on the organizer sheet (see GITHUB.md) so org policies and Actions work.
-2. **Align names:** set **`CI_SERVICE_NAME`** in `.github/workflows/build.yml` to your canonical service name (same as ECR / Kubernetes / AppConfig application name). Set **`CI_BUILD_STACK`** to **`python`**, **`nextjs`**, **`java-mvn`**, or **`java-gradle`**.
-3. **Helm:** edit **`helm/values.yaml`** (replace **`<service-name>`** / **`<CHANGE_ME>`**) and **`helm/config.yml`** as needed.
-4. **AppConfig (after AWS SSO login):** run `./scripts/bootstrap-appconfig-for-helm.sh "$CI_SERVICE_NAME"`. It creates the **hack** environment, hosted profiles **`in-hack-helm-configs`** and **`in-hack-app-config`**, ensures a custom **`AllAtOnce`** deployment strategy (0m bake), and **uploads `helm/config.yml`** as a new version on **`in-hack-app-config`**. It does **not** start deployments.
-5. **Push configs in the console:** In **Systems Manager → AppConfig** (region from AWS.md, usually `ap-south-1`), open your application → **deploy** the new **`in-hack-app-config`** version to **`hack`**, then create and **deploy** a hosted version from **`helm/values.yaml`** on **`in-hack-helm-configs`**. Use the custom **`AllAtOnce`** strategy, not the AWS preset **`AppConfig.AllAtOnce`** (10m bake).
-6. **CI/CD:** pushes to **`dev`** / **`stage`** run build and deploy per the workflows; use **`deploy-helm.yml`** for manual Helm deploys when you need a chosen image tag.
+1. **Register your repo** on the organizer sheet — see [GITHUB.md](./GITHUB.md).
+2. **Pick your service folder(s).** The template ships with three examples:
 
-For access, resource names, and troubleshooting, use **AWS.md** and **GITHUB.md**.
+   | Folder | Stack | Keep or delete |
+   |--------|-------|----------------|
+   | `service-one/` | Python (FastAPI / Poetry) | Delete if not needed |
+   | `service-two/` | Next.js | Delete if not needed |
+   | `service-three/` | Java Spring Boot (Maven) | Delete if not needed |
+
+   Delete the ones you don't need. Rename the rest (folder name + `helmReleaseName` in `config/deploy.yaml`). Add more `service-*/` folders as needed.
+
+3. **Edit `config/deploy.yaml`** in each service you keep — set `helmReleaseName`, `namespace`, and your stack's `docker.buildArgs`.
+4. **Edit `config/secrets.json`** — map env var names to GitHub repo secret names, then create the secrets with `gh secret set`.
+5. **Push to `stage`** — the pipeline detects changed `service-*` folders and deploys them automatically.
+
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed config options and troubleshooting.

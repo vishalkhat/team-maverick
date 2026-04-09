@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-> **Register your repo name (required):** After you create your team repository, add your **exact repo name**  to the **Hack Apr 26 repo registration Google Sheet** at:
+> **Register your repo name (required):** After you create your team repository, add your **exact repo name** to the **Hack Apr 26 repo registration Google Sheet** at:
 >
 > [Update Repo Name Here](https://docs.google.com/spreadsheets/d/1iUSKACpAtg0Rp_u7uSilyek5q3WhlktxCI-RI6qaWcE/edit?gid=562580937#gid=562580937)
 >
@@ -13,41 +13,61 @@
 - Template reference: [nurixlabs/hack-apr-26-template-repo](https://github.com/nurixlabs/hack-apr-26-template-repo)
 - Open **[Create repository from this template](https://github.com/new?owner=nurixlabs&template_name=hack-apr-26-template-repo&template_owner=nurixlabs)** (owner **nurixlabs** and template are pre-filled)
 - Name your repo: `team-[your-team-name]`
-- Set visibility: Internal
+- Set visibility: **Internal**
 - Click **Create repository**
-- Then complete **repo registration** in the Google Sheet (see the callout above)
+- Complete **repo registration** in the Google Sheet (see the callout above)
 
-The stage branch is already set as default. Do not change this.
+The `stage` branch is already set as the default. **Do not change this.**
 
 ### 2. Clone your repo
+
+```bash
 git clone https://github.com/nurixlabs/team-[your-team-name].git
 cd team-[your-team-name]
+```
 
-You are already on stage. Start working directly.
+You are already on `stage`. Start working directly.
 
 ---
 
 ## Repo Structure
 
-Do not rename or move the docs/ or src/ folders.
-You are free to organise everything inside src/ however you like.
-
 ```text
 your-repo/
 ├── docs/
-│   ├── PRD.md
-│   └── LLD.md
-├── src/
-├── helm/
-├── infra/
+│   ├── PRD.md                        ← required — do not rename or move
+│   └── LLD.md                        ← required — do not rename or move
+│
+├── service-one/                      ← example: Python (delete or rename)
+│   ├── helm/                         ← per-service Helm chart + Dockerfiles
+│   │   ├── nurix-service/            ← Helm chart for this service
+│   │   ├── python-service.Dockerfile
+│   │   ├── nextjs-service.Dockerfile
+│   │   ├── java-service-maven.Dockerfile
+│   │   └── java-service-gradle.Dockerfile
+│   ├── config/
+│   │   ├── deploy.yaml               ← required — Helm + Docker config
+│   │   └── secrets.json              ← optional — maps env vars to GitHub secrets
+│   └── src/                          ← your application source code
+│
+├── service-two/                      ← example: Next.js (delete or rename)
+│   └── ...  (same helm/ structure)
+│
+├── service-three/                    ← example: Java Maven (delete or rename)
+│   └── ...  (same helm/ structure)
+│
 ├── .github/
-└── README.md
+│   └── workflows/
+│       └── deploy.yml                ← trigger stub — do not edit
+│
+└── README.md                         ← short project description for reviewers
 ```
 
-- **docs/** — PRD and LLD (required paths; do not rename the folder)
-- **src/** — all application code
-- **helm/**, **infra/**, **.github/** — supporting layout from the template (customize as needed)
-- **README.md** — short project description for reviewers
+**Naming rules:**
+- Your service folders **must** be named `service-<something>` — the pipeline only triggers for paths matching `service-*/**`.
+- Each service folder contains its own `helm/` with the chart and Dockerfiles — do not delete it.
+- Delete unused example service folders to keep your repo tidy. Push any change to `stage` after deleting.
+- Do not rename or move `docs/`, `PRD.md`, or `LLD.md` — judges find your submission there.
 
 ---
 
@@ -57,132 +77,197 @@ your-repo/
 |---|---|---|
 | PRD | docs/PRD.md | 9 Apr, 5:00 PM IST |
 | LLD | docs/LLD.md | 10 Apr, 12:00 AM IST |
-| Code | src/ | 11 Apr, 12:00 AM IST |
+| Code | service-*/ | 11 Apr, 12:00 AM IST |
 
-- Each artifact has its own published deadline. Organizers may apply lateness rules; there is **no** automated sync to a central repo or bot-driven commit status for deadlines.
-- **Judges review your work in your team repository** (e.g. open `docs/PRD.md` and `docs/LLD.md` on **`stage`**). Keep those paths and filenames so reviewers can find them quickly.
+- **Judges review your work in your team repository** on the `stage` branch.
+- There is no separate submission portal — push to `stage` and you're done.
 
 ---
 
 ## How to Submit
 
-No separate submission portal. Push your work to the **`stage`** branch; that is your source of truth for reviewers.
-
 ### PRD
+
+```bash
 git add docs/PRD.md
 git commit -m "docs: add PRD"
 git push origin stage
+```
 
-Due: 9 Apr, 5:00 PM IST
+Due: **9 Apr, 5:00 PM IST**
 
 ### LLD
+
+```bash
 git add docs/LLD.md
 git commit -m "docs: add LLD"
 git push origin stage
+```
 
-Due: 10 Apr, 12:00 AM IST
+Due: **10 Apr, 12:00 AM IST**
 
 ### Code
-git add src/
+
+```bash
+git add service-*/
 git commit -m "feat: final submission"
 git push origin stage
+```
 
-Due: 11 Apr, 12:00 AM IST
+Due: **11 Apr, 12:00 AM IST**
 
 ---
 
-## CI/CD pipelines
+## CI/CD Pipeline
 
-Your repo ships with GitHub Actions workflows under `.github/workflows/`. You may
-adapt Dockerfiles, tests, and inputs to your stack. Build and deploy behavior is
-separate from how judges access your PRD/LLD in **`docs/`**.
+Every push to `stage` that touches a `service-*` folder automatically builds and deploys that service to EKS. No manual steps required after the one-time setup below.
 
-### Where configuration lives
+### How it works
 
-| What | Where |
-|------|--------|
-| **Stack and service name** | `.github/workflows/build.yml` → `env.CI_BUILD_STACK` and `env.CI_SERVICE_NAME` |
-| **Helm / runtime hints for deploy** | `devops.yml` (values merged at deploy time per platform conventions) |
-| **Manual Helm deploy inputs** | `.github/workflows/deploy-helm.yml` |
+```
+push to stage
+  └─ .github/workflows/deploy.yml (stub)
+        └─ hack-central-apr-26 / deploy.yml
+              └─ detect changed service-* folders
+              └─ for each changed service (parallel):
+                    └─ hack-central-apr-26 / build-deploy.yml
+                          ├─ docker build → push to ECR
+                          └─ helm upgrade --install → EKS (in-hack-eks-01)
+```
 
-Set `CI_BUILD_STACK` to one of: `python`, `nextjs`, `java-mvn`, `java-gradle`.
-Only the job whose `if:` matches that value runs; the others are skipped.
-`CI_SERVICE_NAME` should match the ECR repository name and the service identifier
-used in deploy (template default: `hackathon-service`).
+The logic lives entirely in [nurixlabs/hack-central-apr-26](https://github.com/nurixlabs/hack-central-apr-26). Your repo only needs the 30-line stub in `.github/workflows/deploy.yml` — **do not edit it**.
 
-### Application Build (`build.yml`)
+### One-time setup per service
 
-**Workflow name:** Application Build  
-**File:** `.github/workflows/build.yml`  
-**Reusable workflows:** [nurixlabs/github-shared-workflows](https://github.com/nurixlabs/github-shared-workflows) at ref **`@stable`**.
+**1. Create `service-<name>/config/deploy.yaml`**
 
-**Triggers**
+```yaml
+helmReleaseName: my-service           # unique name for the Helm release
+namespace: team-my-team               # your team repo name
+helmChart: ./helm/nurix-service       # chart bundled with this service
+dockerfilePath: ./helm/python-service.Dockerfile  # pick your stack (see below)
 
-| Event | Branches / notes |
-|--------|------------------|
-| `push` | `dev`, `stage`, `main` |
-| `pull_request` | `dev`, `stage`, `main` (opened, synchronize, reopened) |
-| `workflow_dispatch` | Any; optional input **ignore test failures** (continues even if tests fail) |
+docker:
+  buildArgs:
+    PORT: "8000"
+    POETRY_APP_MODULE: "myapp.main:app"   # Python example
 
-**Permissions:** `id-token: write` (AWS OIDC), `contents: read`.
+image:
+  tag: latest
+```
 
-**Jobs (one stack runs per repo configuration)**
+**2. Pick a Dockerfile**
 
-| Stack (`CI_BUILD_STACK`) | Shared workflow | Highlights |
-|---------------------------|-----------------|------------|
-| `python` | `gsw-python-poetry-build.yml` | Python **3.11**, `Dockerfile`, `tests/`, Poetry; optional `poetry_groups_exclude`, coverage threshold **15%**; Helm chart **`python-service`**; region **ap-south-1**. |
-| `nextjs` | `gsw-nextjs-yarn-build.yml` | Node **22**, `nextjs-service.Dockerfile`, Yarn scripts `tests` / `build`; Helm **`nextjs-service`**. |
-| `java-mvn` | `gsw-java-maven-build.yml` | Java **17**, `Dockerfile`, Maven options `-T 4C -B --no-transfer-progress`; Helm **`java-service`**; coverage optional (`enable_coverage: false` in template). |
-| `java-gradle` | `gsw-java-gradle-build.yml` | Java **17**, `Dockerfile`, Gradle **`--no-daemon --build-cache`**; Helm **`java-service`**. |
+| Your stack | `dockerfilePath` |
+|------------|-----------------|
+| Python (FastAPI / Flask / Poetry) | `./helm/python-service.Dockerfile` |
+| Next.js | `./helm/nextjs-service.Dockerfile` |
+| Java Spring Boot (Maven) | `./helm/java-service-maven.Dockerfile` |
+| Java worker (Gradle) | `./helm/java-service-gradle.Dockerfile` |
+| Custom | `./Dockerfile` (place it in your service folder) |
 
-**Secrets (by stack — set in repo or org settings)**
+**3. Add secrets (if needed)**
 
-- **Python / Java (Gradle):** `GIT_TOKEN` — private Git dependencies (e.g. GitHub Packages / private repos).
-- **Next.js:** `ORG_YARNRC` and `GITHUB_TOKEN` (as wired in the template).
-- **Java (Maven):** `secrets: inherit` — use org/repo secrets expected by the shared Maven workflow (see shared-workflows docs if you add private repositories).
+Create `service-<name>/config/secrets.json`:
 
-Successful builds push an image to **ECR** (`aws_region: ap-south-1`); the exact tagging scheme is defined in the shared workflow outputs.
+```json
+{
+  "DATABASE_URL": "database_url",
+  "JWT_SECRET":   "jwt_secret"
+}
+```
 
-### Auto-deploy to India (`build.yml` → `auto-deploy-in`)
+Keys = environment variable names in the pod.
+Values = GitHub repo secret names. Create each secret:
 
-After a **push** to **`dev`** or **`stage`**, if the build job for your stack
-**succeeded**, a follow-up job runs **`gsw-deploy-helm.yml@stable`** with:
+```bash
+gh secret set database_url --repo nurixlabs/team-[your-team] --body "mysql://..."
+gh secret set jwt_secret   --repo nurixlabs/team-[your-team] --body "supersecret"
+```
 
-- **environment:** `dev` when pushing to `dev`, `stage` when pushing to `stage`
-- **region:** `in`
-- **image_repo / service_name:** `CI_SERVICE_NAME`
-- **image_tag:** from the build job output (varies slightly by stack; Next.js exposes branch-specific outputs for dev/stage in India)
-- **helm_chart_name:** `python-service`, `nextjs-service`, or `java-service` according to `CI_BUILD_STACK`
+**Optional secrets** (set at repo level if your stack needs them):
 
-Pushes to **`main`** and **pull requests** run build (and tests) but **do not**
-trigger this auto-deploy job in the template.
+| Secret | When needed |
+|--------|-------------|
+| `GIT_TOKEN` | Python or Maven Dockerfile — private Git/Maven dependencies |
+| `ORG_YARNRC` | Next.js Dockerfile — private `@nurixlabs` npm packages |
 
-### Manual Helm deploy (`deploy-helm.yml`)
+**4. Push to `stage`**
 
-**Workflow name:** Deploy with Helm  
-**File:** `.github/workflows/deploy-helm.yml`  
-**Trigger:** `workflow_dispatch` only.
+```bash
+git add service-my-service/
+git commit -m "feat: add my-service"
+git push origin stage
+```
 
-You provide **`image_tag`** (for example a tag printed by a previous Application
-Build run). The template pins:
+The pipeline picks it up automatically.
 
-- **environment:** `hack` (do not change unless organizers say otherwise)
-- **region:** `in`
-- **helm_chart_name:** `nurix-service` (template default; differs from auto-deploy chart names above)
-- **service_name / image_repo / namespace:** `hackathon-service` — change these together if you rename the service
+### Checking deployment status
 
-Adjust **`service_name`**, **`image_repo`**, and **`namespace`** in this workflow
-if you change `CI_SERVICE_NAME` in `build.yml`, and keep them consistent.
+**GitHub Actions tab** → latest **Deploy** run → expand the job for your service → click the **Summary** tab for a table with namespace, image URI, and run link.
 
-### `devops.yml`
+**kubectl** (after `aws eks update-kubeconfig`):
 
-`devops.yml` holds **service_name** and **helm_values** (commands, resources,
-health checks, etc.) used when values are merged for deployment. Keep
-**service_name** aligned with `CI_SERVICE_NAME` / Helm service naming expectations.
+```bash
+kubectl get pods -n <namespace>
+kubectl logs -l app.kubernetes.io/instance=<helmReleaseName> -n <namespace> --tail=50
+```
+
+### Manual deploy (specific service)
+
+From the **Actions** tab → **Deploy** → **Run workflow** → enter the service folder name (e.g. `service-backend`).
+
+Or via CLI:
+
+```bash
+gh workflow run deploy.yml \
+  --repo nurixlabs/team-[your-team] \
+  --ref stage \
+  --field service_path=service-backend
+```
+
+### Rollback
+
+```bash
+helm rollback <helmReleaseName> -n <namespace>
+```
+
+### Example service folders
+
+The template ships three ready-to-use examples. **Delete any you don't need** — the pipeline only deploys folders that have changed, so unused examples sitting unchanged will never trigger a deploy. But removing them keeps your repo clean.
+
+| Folder | Stack | Delete if… |
+|--------|-------|------------|
+| `service-one/` | Python (FastAPI / Poetry) | You're not building a Python service |
+| `service-two/` | Next.js | You're not building a frontend |
+| `service-three/` | Java Spring Boot (Maven) | You're not using Java |
+
+```bash
+# Example: team only needs Python and Next.js
+git rm -r service-three/
+git commit -m "chore: remove unused service-three example"
+git push origin stage
+```
+
+**To use an example:**
+1. Rename the folder: `mv service-one service-my-backend`
+2. Update `config/deploy.yaml`: set `helmReleaseName` to match your new name and update `namespace`
+3. Update `docker.buildArgs` for your entrypoint / port / version
+4. Replace `src/` with your application code
+
+---
+
+## Cloud resources
+
+See **[CLOUD.md](./CLOUD.md)** for:
+- AWS account access, EKS cluster, ECR registry, RDS, ElastiCache details
+- Gemini / Vertex AI access via the **$300 Google Cloud free trial**
 
 ---
 
 ## Rules
 
-- All work must be on the **stage** branch — do not use other long-lived branches for submissions
+- All work must be on the **`stage`** branch — do not use other long-lived branches for submissions
+- Service folders must follow the `service-*` naming convention for the pipeline to detect them
 - Follow the structure and deadlines above unless an organizer announces an exception
+- Judges review `docs/PRD.md` and `docs/LLD.md` on `stage` — keep those paths and filenames
