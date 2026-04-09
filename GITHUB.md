@@ -257,6 +257,14 @@ git push origin stage
 
 ---
 
+## Cloud resources
+
+See **[CLOUD.md](./CLOUD.md)** for:
+- AWS account access, EKS cluster, ECR registry, RDS, ElastiCache details
+- Gemini / Vertex AI access via the **$300 Google Cloud free trial**
+
+---
+
 ## Rules
 
 - All work must be on the **`stage`** branch — do not use other long-lived branches for submissions

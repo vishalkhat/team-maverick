@@ -1,6 +1,6 @@
 # hack-apr-26-template-repo
 
-Template for **Hack Apr 26** team repos. Full participant steps live in **[GITHUB.md](./GITHUB.md)**; AWS account details are in **[AWS.md](./AWS.md)**.
+Template for **Hack Apr 26** team repos. Full participant steps live in **[GITHUB.md](./GITHUB.md)**; cloud resource details (AWS + Gemini) are in **[CLOUD.md](./CLOUD.md)**.
 
 ## Quick start
 
