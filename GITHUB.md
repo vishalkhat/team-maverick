@@ -77,7 +77,7 @@ your-repo/
 |---|---|---|
 | PRD | docs/PRD.md | 9 Apr, 5:00 PM IST |
 | LLD | docs/LLD.md | 10 Apr, 12:00 AM IST |
-| Code | service-*/ | 11 Apr, 12:00 AM IST |
+| Code | service-*/ | 13 Apr, 12:00 AM IST |
 
 - **Judges review your work in your team repository** on the `stage` branch.
 - There is no separate submission portal — push to `stage` and you're done.
