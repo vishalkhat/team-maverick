@@ -5,7 +5,7 @@
 
 # ── Pipeline config ───────────────────────────────────────────────────────────
 helmReleaseName: service-three
-namespace: team-hack
+namespace: team-maverick
 helmChart: ./helm/nurix-service
 dockerfilePath: ./helm/java-service-maven.Dockerfile
 
