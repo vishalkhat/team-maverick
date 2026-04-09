@@ -30,6 +30,8 @@ For connecting to resources over **Systems Manager Session Manager** (for exampl
 |------|--------|
 | **AWS account** | **hack-apr-26** (`632421564644`) |
 | **Primary region** | **ap-south-1** (Asia Pacific — Mumbai) |
+| **ECR registry** | `632421564644.dkr.ecr.ap-south-1.amazonaws.com` |
+| **EKS cluster** | `in-hack-eks-01` |
 
 Use these when picking the account in the [AWS access portal](https://nurixlabs.awsapps.com/start/#/?tab=accounts) or configuring CLI profiles.
 
@@ -46,67 +48,125 @@ The following exists in **hack-apr-26** for the hack environment. It is managed 
 ### Amazon EKS (Kubernetes)
 
 - **Cluster name:** **`in-hack-eks-01`**
-- **Purpose:** Run services you deploy from your **team repo** (typically **Helm** via **GitHub Actions**).
-- **Cluster platform add-ons** (shared — do not tear down without DevOps): **Prometheus Operator** (monitoring stack), **Promtail** (log shipping), **Linkerd** (service mesh).
+- **Purpose:** Run services you deploy from your **team repo** via the Helm-based GitHub Actions pipeline.
 
-Configure `kubectl` after SSO login, for example:
+Configure `kubectl` after SSO login:
 
 ```bash
 aws eks update-kubeconfig --region ap-south-1 --name in-hack-eks-01 --profile <your-sso-profile>
+```
+
+### Amazon ECR
+
+Each service in your repo gets its own ECR repository, created automatically on the first deploy:
+
+```
+632421564644.dkr.ecr.ap-south-1.amazonaws.com/<team-repo-name>/<service-folder>/
+```
+
+For example, for a repo called `team-alpha` with a folder `service-backend`:
+```
+632421564644.dkr.ecr.ap-south-1.amazonaws.com/team-alpha/service-backend
 ```
 
 ### Data stores
 
 | Service | Identifier / name | Notes |
 |--------|-------------------|--------|
-| **Amazon RDS** (MySQL **8.0**) | **`in-hack-mysql`** | Single-AZ dev-style instance in **private** subnets (`db.t4g.medium` class in IaC). **Credentials and endpoints** are not published here — use Secrets Manager / SSM / organizer instructions. |
-| **Amazon ElastiCache** (Valkey) | **`in-hack-cache-01`** | Valkey **8.1**, multi-AZ–capable cache in **private** subnets (platform-managed). |
+| **Amazon RDS** (MySQL **8.0**) | **`in-hack-mysql`** | Single-AZ dev-style instance in **private** subnets. **Credentials and endpoint** via Secrets Manager / organizer instructions. |
+| **Amazon ElastiCache** (Valkey) | **`in-hack-cache-01`** | Valkey **8.1**, multi-AZ–capable cache in **private** subnets. |
 
 ### CI/CD (GitHub → AWS)
 
-- **OIDC provider** for **GitHub Actions** and IAM role **`github-actions-role`** — allows eligible **`nurixlabs/*`** repositories to assume a role for **ECR**, **EKS** deploy, **AppConfig**, **Secrets Manager** read, etc., per attached policies.
-- Your repo must be **registered** and **allowed by org policy** so pipelines are not blocked — see [GITHUB.md](./GITHUB.md).
+- **OIDC provider** for GitHub Actions and IAM role **`github-actions-role`** — allows eligible **`nurixlabs/*`** repositories to assume a role for ECR push, EKS deploy, Secrets Manager read, etc.
+- Your repo must be **registered** in the org policy sheet so pipelines are not blocked — see [GITHUB.md](./GITHUB.md).
 
 ### Remote state (for awareness)
 
-Platform Terraform state for this account uses a dedicated **S3** bucket and **DynamoDB** table for locks in **ap-south-1** (operators only; you do not need this for normal app development).
+Platform Terraform state uses a dedicated **S3** bucket and **DynamoDB** table for locks in **ap-south-1** (operators only; you do not need this).
 
 ---
 
 ## Deploying your service (developer checklist)
 
-Do these in order so **CI can build and Helm can apply** the right image and configuration.
+The pipeline is fully automated. Do these steps once per service, then **every push to `stage` deploys automatically**.
 
-1. **Write your application code** under `src/` (and any supporting files your stack needs).
+### 1. Create your service folder
 
-2. **Commit and push to `stage`**  
-   Hackathon submissions and the default pipelines expect work on **`stage`** — see [GITHUB.md](./GITHUB.md).
+Copy one of the sample folders from the template and rename it `service-<name>`:
 
-3. **Configure CI in `.github/workflows/build.yml`**  
-   In the workflow **`env`** block, set:
-   - **`CI_SERVICE_NAME`** — must match your **ECR repository name** and the **Kubernetes / Helm service name** you deploy (same string the platform expects).
-   - **`CI_BUILD_STACK`** — which stack runs: **`python`**, **`nextjs`**, **`java-mvn`**, or **`java-gradle`**.  
-   Adjust Dockerfile paths, Java/Node/Python versions, and secrets (`GIT_TOKEN`, `ORG_YARNRC`, `PACKAGES_READ_TOKEN`, etc.) per your project.
+```
+service-backend/          ← Python FastAPI example
+service-nextjs-app/       ← Next.js example
+service-java-api/         ← Java Spring Boot (Maven) example
+service-java-worker/      ← Java worker (Gradle) example
+```
 
-4. **Publish App Config before (or when) you rely on deploy**  
-   The shared **Helm deploy** path expects **hosted configuration** for your service: application name = **`CI_SERVICE_NAME`**, environment **`hack`**, and profiles **`in-hack-helm-configs`** (Helm values) and **`in-hack-app-config`** (contents of **`helm/config.yml`**). If App Config does not yet contain your data, deploys can fail or apply wrong defaults.
+### 2. Edit `config/deploy.yaml`
 
-   **Bootstrap:** after SSO login, the script creates the app, environment, both hosted profiles, a custom **`AllAtOnce`** strategy (if missing), and **uploads `helm/config.yml`** as a new hosted version on **`in-hack-app-config`** (no deployment is started):
+This is the only required config file. Set at minimum:
 
-   ```bash
-   export AWS_PROFILE=<your-hack-apr-26-profile>
-   export AWS_REGION=ap-south-1
-   ./scripts/bootstrap-appconfig-for-helm.sh "$CI_SERVICE_NAME"
-   ```
+```yaml
+helmReleaseName: <your-service-name>     # unique within the namespace
+namespace: <your-team-repo-name>         # e.g. team-alpha
+dockerfilePath: ../helm/python-service.Dockerfile   # pick your stack
+docker:
+  buildArgs:
+    PORT: "8000"
+    POETRY_APP_MODULE: "myapp.main:app"  # adjust per stack
+```
 
-   **You must deploy (push) in the console:** open **Systems Manager → AppConfig** (same region) → your application → for **`in-hack-app-config`**, **start a deployment** of the version the script just created to environment **`hack`**. Separately, for **`in-hack-helm-configs`**, create a hosted version from **`helm/values.yaml`** (replace **`<service-name>`** / **`<CHANGE_ME>`** with **`CI_SERVICE_NAME`** — see the top of **`helm/values.yaml`**), then **deploy** that version to **`hack`**. Re-run the bootstrap script after editing **`helm/config.yml`** to upload a new version, then deploy again.
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for the full list of options.
 
-   **Deployment strategy:** choose the custom strategy named **`AllAtOnce`** (created by the bootstrap script if it did not exist). Do **not** use the read-only preset **`AppConfig.AllAtOnce`** — it always includes a **10** minute bake. The custom strategy uses **0** minutes **deployment duration** and **0** minutes **final bake** so rollout finishes as soon as AppConfig applies the version.
+### 3. Edit `config/secrets.json` (if needed)
 
-5. **Let Actions run**  
-   Pushes to **`dev`** or **`stage`** trigger **build** and, on success, **auto-deploy** via `.github/workflows/build.yml`. For a **manual** deploy with a chosen image tag, use `.github/workflows/deploy-helm.yml` if your repo includes it.
+Map environment variable names to GitHub repo secret names:
 
-Also keep **`devops.yml`** aligned with your Helm/runtime expectations where your team uses it for documentation or automation. Repo registration and org policy still apply — [GITHUB.md](./GITHUB.md).
+```json
+{
+  "DATABASE_URL": "database_url",
+  "JWT_SECRET":   "jwt_secret"
+}
+```
+
+Then create each secret in your repo:
+
+```bash
+gh secret set database_url --repo nurixlabs/<team-repo> --body "mysql://..."
+gh secret set jwt_secret   --repo nurixlabs/<team-repo> --body "supersecret"
+```
+
+### 4. Push to `stage`
+
+```bash
+git add service-backend/
+git commit -m "feat: add backend service"
+git push origin stage
+```
+
+The pipeline detects the changed `service-backend/` folder and:
+1. Builds a Docker image (using the Dockerfile you chose)
+2. Pushes it to ECR (creates the repository if it doesn't exist)
+3. Deploys with `helm upgrade --install` using the shared `nurix-service` chart
+4. Waits for the rollout and posts a summary in the Actions tab
+
+### 5. Check the deployment
+
+```bash
+# Follow the Actions run
+gh run watch --repo nurixlabs/<team-repo>
+
+# Or check pods directly
+aws eks update-kubeconfig --region ap-south-1 --name in-hack-eks-01
+kubectl get pods -n <namespace>
+kubectl logs -l app.kubernetes.io/instance=<helmReleaseName> -n <namespace> --tail=50
+```
+
+### Rollback
+
+```bash
+helm rollback <helmReleaseName> -n <namespace>
+```
 
 ---
 
